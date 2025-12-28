@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle Avoider</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background: #000;
+            display: none;
+        }
+        .screen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .screen.active {
+            display: block;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #333;
+            color: #fff;
+            border: 1px solid #fff;
+        }
+        button:hover {
+            background: #555;
+        }
+        input {
+            padding: 8px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+        }
+        #highScoreDisplay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen" class="screen active">
+        <h1>CIRCLE AVOIDER</h1>
+        <p>Avoid the moving circles!</p>
+        <p>Desktop: Use WASD or Arrow Keys</p>
+        <p>Mobile: Touch and drag</p>
+        <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="20">
+        <div id="highScoreDisplay">High Score: 0</div>
+        <button id="startButton">Start Game</button>
+        <button id="closeButton">Close</button>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="hud">Score: 0</div>
+        <div id="highScoreDisplay">Best: 0</div>
+    </div>
+
+    <div id="victoryScreen" class="screen">
+        <h1>VICTORY!</h1>
+        <p>You survived 60 seconds!</p>
+        <div id="finalScore">Final Score: 0</div>
+        <button id="victoryRestartButton">Restart</button>
+        <button id="victoryMainMenuButton">Main Menu</button>
+        <button id="victoryCloseButton">Close</button>
+    </div>
+
+    <div id="defeatScreen" class="screen">
+        <h1>GAME OVER</h1>
+        <div id="defeatScore">Final Score: 0</div>
+        <button id="defeatRestartButton">Restart</button>
+        <button id="defeatMainMenuButton">Main Menu</button>
+        <button id="defeatCloseButton">Close</button>
+    </div>
+
+    <script>
+        // Game variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameId = 'circle-avoider';
+        let gameState = 'start';
+        let score = 0;
+        let highScore = 0;
+        let lastPlayerName = '';
+        let player = { x: 400, y: 300, radius: 10, vx: 0, vy: 0 };
+        let enemies = [];
+        let keys = {};
+        let touchStart = null;
+        let gameLoopId;
+        let scoreInterval;
+        let spawnInterval;
+        let difficultyInterval;
+
+        // Initialize high score display to 0
+        document.getElementById('highScoreDisplay').textContent = 'High Score: 0';
+        document.getElementById('highScoreDisplay').style.display = 'block';
+
+        // Load game data when page loads
+        window.addEventListener('load', () => {
+            window.parent.postMessage({ type: 'applaa-game-load-data', gameId: gameId }, '*');
+        });
+
+        // Listen for data response
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'applaa-game-data-loaded') {
+                const gameData = event.data.data;
+                if (gameData) {
+                    highScore = gameData.highScore || 0;
+                    lastPlayerName = gameData.lastPlayerName || '';
+                    document.getElementById('highScoreDisplay').textContent = 'High Score: ' + highScore.toLocaleString();
+                    if (lastPlayerName) {
+                        document.getElementById('playerNameInput').value = lastPlayerName;
+                    }
+                }
+            }
+        });
+
+        // Event listeners
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('closeButton').addEventListener('click', () => window.close());
+        document.getElementById('victoryRestartButton').addEventListener('click', restartGame);
+        document.getElementById('victoryMainMenuButton').addEventListener('click', showStartScreen);
+        document.getElementById('victoryCloseButton').addEventListener('click', () => window.close());
+        document.getElementById('defeatRestartButton').addEventListener('click', restartGame);
+        document.getElementById('defeatMainMenuButton').addEventListener('click', showStartScreen);
+        document.getElementById('defeatCloseButton').addEventListener('click', () => window.close());
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        // Touch controls
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (touchStart) {
+                const touch = e.touches[0];
+                const dx = touch.clientX - touchStart.x;
+                const dy = touch.clientY - touchStart.y;
+                player.vx = dx * 0.1;
+                player.vy = dy * 0.1;
+                touchStart = { x: touch.clientX, y: touch.clientY };
+            }
+        });
+        canvas.addEventListener('touchend', () => {
+            touchStart = null;
+            player.vx *= 0.9;
+            player.vy *= 0.9;
+        });
+
+        function startGame() {
+            const playerName = document.getElementById('playerNameInput').value.trim() || 'Player';
+            lastPlayerName = playerName;
+            showGameScreen();
+            resetGame();
+            gameLoopId = requestAnimationFrame(gameLoop);
+            scoreInterval = setInterval(() => {
+                score++;
+                document.getElementById('hud').textContent = 'Score: ' + score;
+                if (score > highScore) {
+                    highScore = score;
+                    document.getElementById('highScoreDisplay').textContent = 'Best: ' + highScore;
+                }
+                if (score >= 60) {
+                    victory();
+                }
+            }, 1000);
+            spawnInterval = setInterval(spawnEnemy, 5000);
+            difficultyInterval = setInterval(increaseDifficulty, 10000);
+        }
+
+        function resetGame() {
+            score = 0;
+            player = { x: 400, y: 300, radius: 10, vx: 0, vy: 0 };
+            enemies = [];
+            for (let i = 0; i < 3; i++) {
+                spawnEnemy();
+            }
+        }
+
+        function showStartScreen() {
+            gameState = 'start';
+            document.getElementById('startScreen').classList.add('active');
+            document.getElementById('gameScreen').classList.remove('active');
+            document.getElementById('victoryScreen').classList.remove('active');
+            document.getElementById('defeatScreen').classList.remove('active');
+            stopGame();
+        }
+
+        function showGameScreen() {
+            gameState = 'playing';
+            document.getElementById('startScreen').classList.remove('active');
+            document.getElementById('gameScreen').classList.add('active');
+            document.getElementById('victoryScreen').classList.remove('active');
+            document.getElementById('defeatScreen').classList.remove('active');
+            canvas.style.display = 'block';
+        }
+
+        function showVictoryScreen() {
+            gameState = 'victory';
+            document.getElementById('startScreen').classList.remove('active');
+            document.getElementById('gameScreen').classList.remove('active');
+            document.getElementById('victoryScreen').classList.add('active');
+            document.getElementById('defeatScreen').classList.remove('active');
+            document.getElementById('finalScore').textContent = 'Final Score: ' + score;
+            canvas.style.display = 'none';
+            stopGame();
+            saveScore(lastPlayerName, score);
+        }
+
+        function showDefeatScreen() {
+            gameState = 'defeat';
+            document.getElementById('startScreen').classList.remove('active');
+            document.getElementById('gameScreen').classList.remove('active');
+            document.getElementById('victoryScreen').classList.remove('active');
+            document.getElementById('defeatScreen').classList.add('active');
+            document.getElementById('defeatScore').textContent = 'Final Score: ' + score;
+            canvas.style.display = 'none';
+            stopGame();
+            saveScore(lastPlayerName, score);
+        }
+
+        function restartGame() {
+            resetGame();
+            showGameScreen();
+            gameLoopId = requestAnimationFrame(gameLoop);
+            scoreInterval = setInterval(() => {
+                score++;
+                document.getElementById('hud').textContent = 'Score: ' + score;
+                if (score > highScore) {
+                    highScore = score;
+                    document.getElementById('highScoreDisplay').textContent = 'Best: ' + highScore;
+                }
+                if (score >= 60) {
+                    victory();
+                }
+            }, 1000);
+            spawnInterval = setInterval(spawnEnemy, 5000);
+            difficultyInterval = setInterval(increaseDifficulty, 10000);
+        }
+
+        function stopGame() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            if (scoreInterval) clearInterval(scoreInterval);
+            if (spawnInterval) clearInterval(spawnInterval);
+            if (difficultyInterval) clearInterval(difficultyInterval);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            // Player movement
+            if (keys['KeyW'] || keys['ArrowUp']) player.vy -= 0.5;
+            if (keys['KeyS'] || keys['ArrowDown']) player.vy += 0.5;
+            if (keys['KeyA'] || keys['ArrowLeft']) player.vx -= 0.5;
+            if (keys['KeyD'] || keys['ArrowRight']) player.vx += 0.5;
+
+            player.vx *= 0.95;
+            player.vy *= 0.95;
+
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Keep player in bounds
+            player.x = Math.max(player.radius, Math.min(800 - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(600 - player.radius, player.y));
+
+            // Update enemies
+            enemies.forEach(enemy => {
+                enemy.x += enemy.vx;
+                enemy.y += enemy.vy;
+
+                // Bounce off edges
+                if (enemy.x <= enemy.radius || enemy.x >= 800 - enemy.radius) enemy.vx *= -1;
+                if (enemy.y <= enemy.radius || enemy.y >= 600 - enemy.radius) enemy.vy *= -1;
+
+                enemy.x = Math.max(enemy.radius, Math.min(800 - enemy.radius, enemy.x));
+                enemy.y = Math.max(enemy.radius, Math.min(600 - enemy.radius, enemy.y));
+            });
+
+            // Check collisions
+            enemies.forEach(enemy => {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < player.radius + enemy.radius) {
+                    gameOver();
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, 800, 600);
+
+            // Draw player
+            ctx.fillStyle = '#0f0';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw enemies
+            ctx.fillStyle = '#f00';
+            enemies.forEach(enemy => {
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function spawnEnemy() {
+            const enemy = {
+                x: Math.random() * 700 + 50,
+                y: Math.random() * 500 + 50,
+                radius: 20,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5)# ... continuing from above
+
+        function increaseDifficulty() {
+            enemies.forEach(enemy => {
+                enemy.vx *= 1.1;
+                enemy.vy *= 1.1;
+            });
+        }
+
+        function victory() {
+            showVictoryScreen();
+        }
+
+        function gameOver() {
+            showDefeatScreen();
+        }
+
+        function saveScore(playerName, score) {
+            window.parent.postMessage({
+                type: 'applaa-game-save-score',
+                gameId: gameId,
+                playerName: playerName,
+                score: score
+            }, '*');
+        }
+    </script>
+</body>
+</html>

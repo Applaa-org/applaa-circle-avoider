@@ -1,0 +1,50 @@
+{
+  "game": {
+    "name": "Circle Avoider",
+    "type": "2D",
+    "genre": "action",
+    "description": "Control a dot to avoid moving enemy circles. Survive as long as possible to achieve victory!"
+  },
+  "settings": {
+    "window": {
+      "width": 800,
+      "height": 600
+    },
+    "physics": {
+      "gravity": 0
+    }
+  },
+  "player": {
+    "name": "Player",
+    "health": 1,
+    "speed": 200,
+    "abilities": ["move"]
+  },
+  "entities": {
+    "enemies": [
+      {
+        "name": "EnemyCircle",
+        "health": 1,
+        "speed": 100,
+        "damage": 1,
+        "behavior": "bounce"
+      }
+    ],
+    "collectibles": []
+  },
+  "levels": [
+    {
+      "name": "Endless Survival",
+      "background": "black",
+      "obstacles": []
+    }
+  ],
+  "logic": {
+    "winCondition": "survive_60_seconds",
+    "loseCondition": "collision_with_enemy",
+    "scoring": {
+      "pointsPerSecond": 1,
+      "victoryScore": 60
+    }
+  }
+}
