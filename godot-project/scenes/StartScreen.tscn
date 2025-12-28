@@ -1,10 +1,51 @@
-[gd_scene load_steps=4 format=3 uid="uid://startscreen"]
+[gd_scene load_steps=8 format=3 uid="uid://startscreen"]
 
 [ext_resource type="Script" path="res://scripts/StartScreen.gd" id="1"]
-[ext_resource type="Theme" uid="uid://theme" path="res://themes/DefaultTheme.tres" id="2"]
+[ext_resource type="Theme" uid="uid://premiumtheme" path="res://themes/PremiumTheme.tres" id="2"]
+
+[sub_resource type="Animation" id="Animation_fade_in"]
+length = 1.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_fade_out"]
+length = 0.5
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.5),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.1, 0.1, 0.1, 1)
+bg_color = Color(0.05, 0.05, 0.1, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.3, 0.5, 0.8)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 8
 
 [node name="StartScreen" type="Control"]
 layout_mode = 3
@@ -13,13 +54,29 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2")
 script = ExtResource("1")
 
-[node name="Panel" type="Panel" parent="."]
+[node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.02, 0.05, 1)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
@@ -31,10 +88,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+offset_left = -180.0
+offset_top = -130.0
+offset_right = 180.0
+offset_bottom = 130.0
 grow_horizontal = 2
 grow_vertical = 2
 alignment = 1
@@ -43,7 +100,15 @@ alignment = 1
 layout_mode = 2
 text = "CIRCLE AVOIDER"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 36
+theme_override_colors/font_color = Color(0.8, 0.9, 1, 1)
+
+[node name="SubtitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Premium Edition"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.6, 0.7, 0.9, 1)
 
 [node name="InstructionsLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -51,20 +116,43 @@ text = "Avoid the moving circles!
 Use WASD or Arrow Keys to move.
 On mobile, touch and drag."
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.7, 0.7, 0.8, 1)
 
 [node name="PlayerNameInput" type="LineEdit" parent="VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter your name"
+placeholder_text = "Enter your name (max 20 chars)"
+max_length = 20
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
 
 [node name="HighScoreLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 text = "High Score: 0"
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+
+[node name="LoadingLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Loading..."
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.5, 0.8, 0.5, 1)
 
 [node name="StartButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
-text = "Start Game"
+text = "🚀 Start Game"
+theme_override_font_sizes/font_size = 18
 
 [node name="CloseButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
-text = "Close"
+text = "❌ Close"
+theme_override_font_sizes/font_size = 16
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("AnimationLibrary_fade_in_out")
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_fade_in_out"]
+_data = {
+"fade_in": SubResource("Animation_fade_in"),
+"fade_out": SubResource("Animation_fade_out")
+}
